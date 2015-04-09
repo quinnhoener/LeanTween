@@ -885,7 +885,7 @@ public class LTDescr{
 	public float delay;
 	public float time;
 	public float lastVal;
-	private uint _id;
+	private int _id;
 	public int loopCount;
 	public uint counter;
 	public float direction;
@@ -928,13 +928,15 @@ public class LTDescr{
     public UnityEngine.Sprite[] sprites;
 	#endif
 
-	private static uint global_counter = 0;
+	private static int global_counter = 0;
 
     public override string ToString(){
 		return (trans!=null ? "gameObject:"+trans.gameObject : "gameObject:null")+" toggle:"+toggle+" passed:"+passed+" time:"+time+" delay:"+delay+" from:"+from+" to:"+to+" type:"+type+" ease:"+tweenType+" useEstimatedTime:"+useEstimatedTime+" id:"+id+" hasInitiliazed:"+hasInitiliazed;
 	}
 
 	public LTDescr(){
+		this._id = global_counter;
+		global_counter++;
 		this.reset();
 	}
 
@@ -951,7 +953,9 @@ public class LTDescr{
 
 	public int uniqueId{
 		get{ 
-			uint toId = _id | counter << 16;
+			return _id;
+
+			// uint toId = _id | counter << 16;
 
 			/*uint backId = toId & 0xFFFF;
 			uint backCounter = toId >> 16;
@@ -959,7 +963,7 @@ public class LTDescr{
 				Debug.LogError("BAD CONVERSION toId:"+_id);
 			}*/
 
-			return (int)toId;
+			// return (int)toId;
 		}
 	}
 
@@ -985,9 +989,9 @@ public class LTDescr{
 		this.point = Vector3.zero;
 		cleanup();
 		
-		global_counter++;
-		if(global_counter>0x8000)
-			global_counter = 0;
+		// global_counter++;
+		// if(global_counter>0x8000)
+		// 	global_counter = 0;
 	}
 
 	public void cleanup(){
@@ -1347,8 +1351,8 @@ public class LTDescr{
 	}
 
 	public LTDescr setId( uint id ){
-		this._id = id;
-		this.counter = global_counter;
+		this._id = (int)id;
+		this.counter = (uint)global_counter; 
 		return this;
 	}
 
@@ -2807,8 +2811,8 @@ public static void cancel( GameObject gameObject, bool callComplete ){
 public static void cancel( GameObject gameObject, int uniqueId ){
 	if(uniqueId>=0){
 		init();
-		int backId = uniqueId & 0xFFFF;
-		int backCounter = uniqueId >> 16;
+		// int backId = uniqueId & 0xFFFF;
+		// int backCounter = uniqueId >> 16;
 
 		LTDescr currTween = currTweensHead, next;
 		while( currTween != null )
@@ -2816,7 +2820,7 @@ public static void cancel( GameObject gameObject, int uniqueId ){
 			next = currTween.next;
 			if ( currTween.uniqueId == uniqueId )
 			{
-				if ( currTween.trans == null || (currTween.trans.gameObject == gameObject && currTween.counter == backCounter) )
+				if ( currTween.trans == null || currTween.trans.gameObject == gameObject )
 				{
 					removeTween(currTween);
 				}
@@ -2841,8 +2845,8 @@ public static void cancel( GameObject gameObject, int uniqueId ){
 public static void cancel( LTRect ltRect, int uniqueId ){
 	if(uniqueId>=0){
 		init();
-		int backId = uniqueId & 0xFFFF;
-		int backCounter = uniqueId >> 16;
+		// int backId = uniqueId & 0xFFFF;
+		// int backCounter = uniqueId >> 16;
 
 
 		LTDescr currTween = currTweensHead, next;
@@ -2851,7 +2855,7 @@ public static void cancel( LTRect ltRect, int uniqueId ){
 			next = currTween.next;
 			if ( currTween.uniqueId == uniqueId )
 			{
-				if ( currTween.ltRect == ltRect && currTween.counter == backCounter )
+				if ( currTween.ltRect == ltRect )
 				{
 					removeTween(currTween);
 				}
@@ -2869,8 +2873,8 @@ public static void cancel( LTRect ltRect, int uniqueId ){
 private static void cancel( int uniqueId ){
 	if(uniqueId>=0){
 		init();
-		int backId = uniqueId & 0xFFFF;
-		int backCounter = uniqueId >> 16;
+		// int backId = uniqueId & 0xFFFF;
+		// int backCounter = uniqueId >> 16;
 
 		LTDescr currTween = currTweensHead, next;
 		while( currTween != null )
@@ -2878,7 +2882,7 @@ private static void cancel( int uniqueId ){
 			next = currTween.next;
 			if ( currTween.uniqueId == uniqueId )
 			{
-				if ( currTween.hasInitiliazed && currTween.counter == backCounter )
+				if ( currTween.hasInitiliazed )
 				{
 					removeTween(currTween);
 				}
@@ -2895,8 +2899,8 @@ private static void cancel( int uniqueId ){
 
 // Deprecated
 public static LTDescr description( int uniqueId ){
-	int backId = uniqueId & 0xFFFF;
-	int backCounter = uniqueId >> 16;
+	// int backId = uniqueId & 0xFFFF;
+	// int backCounter = uniqueId >> 16;
 
 	LTDescr currTween = currTweensHead, next;
 	while( currTween != null )
@@ -2904,10 +2908,7 @@ public static LTDescr description( int uniqueId ){
 		next = currTween.next;
 		if ( currTween.uniqueId == uniqueId )
 		{
-			if ( currTween.counter == backCounter )
-			{
-				return currTween;
-			}
+			return currTween;
 		}
 		
 		currTween = next;
@@ -2928,8 +2929,8 @@ public static void pause( GameObject gameObject, int uniqueId ){
 }
 
 public static void pause( int uniqueId ){
-	int backId = uniqueId & 0xFFFF;
-	int backCounter = uniqueId >> 16;
+	// int backId = uniqueId & 0xFFFF;
+	// int backCounter = uniqueId >> 16;
 
 
 	LTDescr currTween = currTweensHead, next;
@@ -2938,11 +2939,8 @@ public static void pause( int uniqueId ){
 		next = currTween.next;
 		if ( currTween.uniqueId == uniqueId )
 		{
-			if ( currTween.counter == backCounter )
-			{
-				currTween.pause();
-				break;
-			}
+			currTween.pause();
+			break;
 		}
 		
 		currTween = next;
@@ -3034,8 +3032,8 @@ public static void resume( GameObject gameObject, int uniqueId ){
 * @param {int} id:int Id of the tween you want to resume ex: int id = LeanTween.MoveX(gameObject, 5, 1.0).id;
 */
 public static void resume( int uniqueId ){
-	int backId = uniqueId & 0xFFFF;
-	int backCounter = uniqueId >> 16;
+	// int backId = uniqueId & 0xFFFF;
+	// int backCounter = uniqueId >> 16;
 
 
 	LTDescr currTween = currTweensHead;
@@ -3132,14 +3130,14 @@ public static bool isTweening( GameObject gameObject = null ){
 * &nbsp;&nbsp; &nbsp;&nbsp;Debug.Log("I am tweening!");<br>
 */	
 public static bool isTweening( int uniqueId ){
-	int backId = uniqueId & 0xFFFF;
-	int backCounter = uniqueId >> 16;
+	// int backId = uniqueId & 0xFFFF;
+	// int backCounter = uniqueId >> 16;
 //	if (backId < 0 || backId >= maxTweens) return false;
 
 	LTDescr currTween = currTweensHead;
 	while( currTween != null )
 	{
-		if ( currTween.counter == backCounter && currTween.toggle )
+		if ( currTween.toggle )
 		{
 			return true;
 		}
