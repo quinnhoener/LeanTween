@@ -872,6 +872,7 @@ public enum LeanTweenType{
 * @constructor
 */
 public class LTDescr{
+	public LTDescr next;
 	public bool toggle;
 	public bool useEstimatedTime;
 	public bool useFrames;
@@ -944,7 +945,7 @@ public class LTDescr{
 	* @return {LTDescr} LTDescr an object that distinguishes the tween
 	*/
 	public LTDescr cancel(){
-		LeanTween.removeTween((int)this._id);
+		LeanTween.removeTween(this);
 		return this;
 	}
 
@@ -1783,8 +1784,8 @@ public static bool throwErrors = true;
 public static float tau = Mathf.PI*2.0f; 
 
 //private static LTDescr[] tweens;
-private static LinkedList<LTDescr> tweenPool;
-private static LinkedList<LTDescr> currTweens;
+private static LTDescr tweenPoolHead;
+private static LTDescr currTweensHead;
 //private static int[] tweensFinished;
 private static LTDescr tween;
 private static int tweenMaxSearch = -1;
@@ -1823,10 +1824,10 @@ public static int maxSearch{
 *   LeanTween.init( 800 );
 */
 public static void init(int maxSimultaneousTweens){
-	if(tweenPool==null){
+	if(tweenPoolHead ==null){
 //		maxTweens = maxSimultaneousTweens;
-		tweenPool = new LinkedList<LTDescr>();
-		currTweens = new LinkedList<LTDescr>();
+		// tweenPool = new LinkedList<LTDescr>();
+		// currTweens = new LinkedList<LTDescr>();
 		_tweenEmpty = new GameObject();
 		_tweenEmpty.name = "~LeanTween";
 		_tweenEmpty.AddComponent<LeanTween>();
@@ -1835,15 +1836,24 @@ public static void init(int maxSimultaneousTweens){
 		_tweenEmpty.hideFlags = HideFlags.HideAndDontSave;
 		#endif
 		DontDestroyOnLoad( _tweenEmpty );
+		LTDescr newTween;
 		for(int i = 0; i < maxTweens; i++){
-			tweenPool.AddFirst(new LTDescr());
+			newTween = new LTDescr();
+			newTween.next = tweenPoolHead;
+			tweenPoolHead = newTween;
 		}
 	}
 }
 
 public static void reset(){
-	tweenPool.Clear();
-	tweenPool = null;
+	LTDescr curr = tweenPoolHead, prev;
+	while( curr != null )
+	{
+		prev = curr;
+		curr = curr.next;
+		prev.next = null;
+	}
+	tweenPoolHead = null;
 	Destroy(_tweenEmpty);
 }
 
@@ -1888,12 +1898,11 @@ public static void update() {
 		// if(tweenMaxSearch>1500)
 		// Debug.Log("tweenMaxSearch:"+tweenMaxSearch +" maxTweens:"+maxTweens);
 
-		LinkedListNode<LTDescr> currTween = currTweens.First;
-		LinkedListNode<LTDescr> nextTween = currTweens.First;
+		LTDescr currTween = currTweensHead, next;
 		while( currTween != null ){
 //		for( int i = 0; i <= tweenMaxSearch && i < maxTweens; i++){
-			nextTween = currTween.Next;
-			tween = currTween.Value;
+			next = currTween.next;
+			tween = currTween;
 //			Debug.Log("tween.toggle:"+tween.toggle);
 			
 			if(tween.toggle){
@@ -1916,6 +1925,7 @@ public static void update() {
 				
 				if(trans==null){
 					removeTween(currTween);
+					currTween = next;
 					continue;
 				}
 				// Debug.Log("i:"+i+" tween:"+tween+" dt:"+dt);
@@ -2507,7 +2517,7 @@ public static void update() {
 				}
 			}
 			
-			currTween = nextTween;
+			currTween = next;
 		}
 
 		// Debug.Log("maxTweenReached:"+maxTweenReached);
@@ -2589,7 +2599,7 @@ private static void finishTween(LTDescr tween)
 				}
 			}
 		}
-		removeTween(j);
+		// removeTween(j);
 		if(callbackWithParam!=null){
 			callbackWithParam( callbackParam );
 		}else if(callback!=null){
@@ -2614,36 +2624,33 @@ private static void finishTween(LTDescr tween)
 }
 
 // This method is only used internally! Do not call this from your scripts. To cancel a tween use LeanTween.cancel
-public static void removeTween( LinkedListNode<LTDescr> nodeToRemove )
+public static void removeTween( LTDescr tween )
 {	
-//	// If we're removing the first tween in the list. 
-//	if ( nodeToRemove == currTweens.First )
-//	{
-//		currTweens.RemoveFirst();
-//	}
-//
-//	// Check if we're removing the last tween in the list. 
-//	if ( nodeToRemove == currTweens.Last )
-//	{
-//		currTweens.RemoveLast();
-//	}
-//	
-//	// Check if there's a previous node.
-//	if ( nodeToRemove.Previous != null )
-//	{
-//		// Set the previous to the next tween.
-//		nodeToRemove.Previous.Next = nodeToRemove.Next;
-//	}
-//	
-//	// Check if there's a next node. 
-//	if ( nodeToRemove.Next != null )
-//	{
-//		// Set the next node to be the previous node. 
-//		nodeToRemove.Next.Previous = nodeToRemove.Previous;
-//	}
+	LTDescr curr = currTweensHead, prev = null, next = null;
+	while ( curr != null )
+	{
+		next = curr.next;
+		if ( tween == curr )
+		{
+			if ( prev == null )
+			{
+				currTweensHead = next;
+			}
+			else
+			{
+				prev.next = next;
+			}
+
+			// Put the current tween back in the tween pool.
+			curr.next = tweenPoolHead;
+			tweenPoolHead = curr;
+			break;
+		}
+		prev = curr;
+		curr = next;
+	}
 	
-	
-	LTDescr tween = nodeToRemove.Value;
+	// Make sure to destroy if that needs to happen.	
 	if(tween.destroyOnComplete){
 		//Debug.Log("destroying tween.type:"+tween.type);
 		if(tween.ltRect!=null){
@@ -2658,27 +2665,23 @@ public static void removeTween( LinkedListNode<LTDescr> nodeToRemove )
 
 	// Reset this tween
 	tween.reset();
-	// and push back to the tween pool. 
-	tweenPool.AddLast(tween);
-
-	currTweens.Remove(nodeToRemove);
 }
 
 // This method is only used internally! Do not call this from your scripts. To cancel a tween use LeanTween.cancel
-public static void removeTween( int i ){
+// public static void removeTween( int i ){
 
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	while( currTween != null )
-	{
-		LTDescr tween = currTween.Value;
-		if (tween.id == i){
-			removeTween(currTween);
-			break;
-		}
+// 	LinkedListNode<LTDescr> currTween = currTweens.First;
+// 	while( currTween != null )
+// 	{
+// 		LTDescr tween = currTween.Value;
+// 		if (tween.id == i){
+// 			removeTween(currTween);
+// 			break;
+// 		}
 		
-		currTween = currTween.Next;
-	}
+// 		currTween = currTween.Next;
+// 	}
 
 
 //	if(tweens[i].toggle){
@@ -2705,7 +2708,7 @@ public static void removeTween( int i ){
 //			//tweenMaxSearch--;
 //		}
 //	}
-}
+// }
 
 public static Vector3[] add(Vector3[] a, Vector3 b){
 	Vector3[] c = new Vector3[ a.Length ];
@@ -2745,17 +2748,17 @@ public static void cancelAll(bool callComplete){
     init();
 //    for (int i = 0; i <= tweenMaxSearch; i++)
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr currTween = currTweensHead, next;
 	while( currTween != null )
     {
-		LTDescr tween = currTween.Value;
-        if (tween.trans != null){
-            if (callComplete && tween.onComplete != null)
-                tween.onComplete();
+    	next = currTween.next;
+        if (currTween.trans != null){
+            if (callComplete && currTween.onComplete != null)
+                currTween.onComplete();
             removeTween(currTween);
         }
 		
-		currTween = currTween.Next;
+		currTween = next;
     }
 }
 
@@ -2776,17 +2779,17 @@ public static void cancel( GameObject gameObject, bool callComplete ){
 	Transform trans = gameObject.transform;
 //	for(int i = 0; i <= tweenMaxSearch; i++)
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr currTween = currTweensHead, next;
 	while( currTween != null )
 	{
-		LTDescr tween = currTween.Value;
-		if(tween.toggle && tween.trans==trans){
-            if (callComplete && tween.onComplete != null)
-                tween.onComplete();
+		next = currTween.next;
+		if(currTween.toggle && currTween.trans == trans){
+            if (callComplete && currTween.onComplete != null)
+                currTween.onComplete();
 			removeTween(currTween);
 		}
 		
-		currTween = currTween.Next;
+		currTween = next;
 	}
 }
 
@@ -2803,20 +2806,19 @@ public static void cancel( GameObject gameObject, int uniqueId ){
 		int backId = uniqueId & 0xFFFF;
 		int backCounter = uniqueId >> 16;
 
-		LinkedListNode<LTDescr> currTween = currTweens.First;
-		LTDescr tween;
+		LTDescr currTween = currTweensHead, next;
 		while( currTween != null )
 		{
-			tween = currTween.Value;
-			if ( tween.uniqueId == uniqueId )
+			next = currTween.next;
+			if ( currTween.uniqueId == uniqueId )
 			{
-				if ( tween.trans == null || (tween.trans.gameObject == gameObject && tween.counter == backCounter) )
+				if ( currTween.trans == null || (currTween.trans.gameObject == gameObject && currTween.counter == backCounter) )
 				{
 					removeTween(currTween);
 				}
 			}
 			
-			currTween = currTween.Next;
+			currTween = next;
 		}
 
 		// Debug.Log("uniqueId:"+uniqueId+ " id:"+backId +" counter:"+backCounter + " setCounter:"+ tweens[backId].counter + " tweens[id].type:"+tweens[backId].type);
@@ -2839,20 +2841,19 @@ public static void cancel( LTRect ltRect, int uniqueId ){
 		int backCounter = uniqueId >> 16;
 
 
-		LinkedListNode<LTDescr> currTween = currTweens.First;
-		LTDescr tween;
+		LTDescr currTween = currTweensHead, next;
 		while( currTween != null )
 		{
-			tween = currTween.Value;
-			if ( tween.uniqueId == uniqueId )
+			next = currTween.next;
+			if ( currTween.uniqueId == uniqueId )
 			{
-				if ( tween.ltRect == ltRect && tween.counter == backCounter )
+				if ( currTween.ltRect == ltRect && currTween.counter == backCounter )
 				{
 					removeTween(currTween);
 				}
 			}
 
-			currTween = currTween.Next;
+			currTween = next;
 		}
 		
 		// Debug.Log("uniqueId:"+uniqueId+ " id:"+backId +" action:"+(TweenAction)backType + " tweens[id].type:"+tweens[backId].type);
@@ -2867,20 +2868,19 @@ private static void cancel( int uniqueId ){
 		int backId = uniqueId & 0xFFFF;
 		int backCounter = uniqueId >> 16;
 
-		LinkedListNode<LTDescr> currTween = currTweens.First;
-		LTDescr tween;
+		LTDescr currTween = currTweensHead, next;
 		while( currTween != null )
 		{
-			tween = currTween.Value;
-			if ( tween.uniqueId == uniqueId )
+			next = currTween.next;
+			if ( currTween.uniqueId == uniqueId )
 			{
-				if ( tween.hasInitiliazed && tween.counter == backCounter )
+				if ( currTween.hasInitiliazed && currTween.counter == backCounter )
 				{
 					removeTween(currTween);
 				}
 			}
 			
-			currTween = currTween.Next;
+			currTween = next;
 		}
 		
 		// Debug.Log("uniqueId:"+uniqueId+ " id:"+backId +" action:"+(TweenAction)backType + " tweens[id].type:"+tweens[backId].type);
@@ -2894,20 +2894,19 @@ public static LTDescr description( int uniqueId ){
 	int backId = uniqueId & 0xFFFF;
 	int backCounter = uniqueId >> 16;
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead, next;
 	while( currTween != null )
 	{
-		tween = currTween.Value;
-		if ( tween.uniqueId == uniqueId )
+		next = currTween.next;
+		if ( currTween.uniqueId == uniqueId )
 		{
-			if ( tween.counter == backCounter )
+			if ( currTween.counter == backCounter )
 			{
-				return tween;
+				return currTween;
 			}
 		}
 		
-		currTween = currTween.Next;
+		currTween = next;
 	}
 
 //	if(tweens[backId]!=null && tweens[backId].uniqueId == uniqueId && tweens[backId].counter==backCounter)
@@ -2929,21 +2928,20 @@ public static void pause( int uniqueId ){
 	int backCounter = uniqueId >> 16;
 
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead, next;
 	while( currTween != null )
 	{
-		tween = currTween.Value;
-		if ( tween.uniqueId == uniqueId )
+		next = currTween.next;
+		if ( currTween.uniqueId == uniqueId )
 		{
-			if ( tween.counter == backCounter )
+			if ( currTween.counter == backCounter )
 			{
-				tween.pause();
+				currTween.pause();
 				break;
 			}
 		}
 		
-		currTween = currTween.Next;
+		currTween = next;
 	}
 
 //	if(tweens[backId].counter==backCounter){
@@ -2960,17 +2958,16 @@ public static void pause( int uniqueId ){
 public static void pause( GameObject gameObject ){
 	Transform trans = gameObject.transform;
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead, next;
 	while( currTween != null )
 	{
-		tween = currTween.Value;
-		if ( tween.trans == trans )
+		next = currTween.next;
+		if ( currTween.trans == trans )
 		{
-			tween.pause();
+			currTween.pause();
 		}
 		
-		currTween = currTween.Next;
+		currTween = next;
 	}
 	
 //	for(int i = 0; i <= tweenMaxSearch; i++){
@@ -2988,11 +2985,11 @@ public static void pause( GameObject gameObject ){
 public static void pauseAll(){
 	init();
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr currTween = currTweensHead;
 	while( currTween != null )
 	{
-		currTween.Value.pause();
-		currTween = currTween.Next;
+		currTween.pause();
+		currTween = currTween.next;
 	}
 	
 //    for (int i = 0; i <= tweenMaxSearch; i++){
@@ -3008,11 +3005,11 @@ public static void pauseAll(){
 public static void resumeAll(){
 	init();
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr currTween = currTweensHead;
 	while( currTween != null )
 	{
-		currTween.Value.resume();
-		currTween = currTween.Next;
+		currTween.resume();
+		currTween = currTween.next;
 	}
 
 
@@ -3037,17 +3034,15 @@ public static void resume( int uniqueId ){
 	int backCounter = uniqueId >> 16;
 
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead;
 	while( currTween != null )
 	{
-		tween = currTween.Value;
-		if ( tween.uniqueId == uniqueId )
+		if ( currTween.uniqueId == uniqueId )
 		{
-			tween.resume();
+			currTween.resume();
 		}
 		
-		currTween = currTween.Next;
+		currTween = currTween.next;
 	}
 
 
@@ -3065,17 +3060,15 @@ public static void resume( int uniqueId ){
 public static void resume( GameObject gameObject ){
 	Transform trans = gameObject.transform;
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead;
 	while( currTween != null )
 	{
-		tween = currTween.Value;
-		if ( tween.trans == trans )
+		if ( currTween.trans == trans )
 		{
-			tween.resume();
+			currTween.resume();
 		}
 		
-		currTween = currTween.Next;
+		currTween = currTween.next;
 	}
 
 //	for(int i = 0; i <= tweenMaxSearch; i++){
@@ -3092,22 +3085,20 @@ public static void resume( GameObject gameObject ){
 */
 public static bool isTweening( GameObject gameObject = null ){
 	
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead;
 	if(gameObject==null){
 		while( currTween != null ){
-			if(currTween.Value.toggle)
+			if(currTween.toggle)
 				return true;
-			currTween = currTween.Next;
+			currTween = currTween.next;
 		}
 		return false;
 	}
 	Transform trans = gameObject.transform;
 	while( currTween != null ){
-		tween = currTween.Value;
-		if(tween.toggle && tween.trans == trans)
+		if(currTween.toggle && currTween.trans == trans)
 			return true;
-		currTween = currTween.Next;
+		currTween = currTween.next;
 	}
 	return false;
 
@@ -3141,17 +3132,15 @@ public static bool isTweening( int uniqueId ){
 	int backCounter = uniqueId >> 16;
 //	if (backId < 0 || backId >= maxTweens) return false;
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead;
 	while( currTween != null )
 	{
-		tween = currTween.Value;
-		if ( tween.counter == backCounter && tween.toggle )
+		if ( currTween.counter == backCounter && currTween.toggle )
 		{
 			return true;
 		}
 		
-		currTween = currTween.Next;
+		currTween = currTween.next;
 	}
 	return false;
 
@@ -3170,17 +3159,15 @@ public static bool isTweening( int uniqueId ){
 */
 public static bool isTweening( LTRect ltRect ){
 
-	LinkedListNode<LTDescr> currTween = currTweens.First;
-	LTDescr tween;
+	LTDescr currTween = currTweensHead;
 	while( currTween != null )
 	{
-		tween = currTween.Value;
-		if ( tween.toggle && tween.ltRect == ltRect )
+		if ( currTween.toggle && currTween.ltRect == ltRect )
 		{
 			return true;
 		}
 		
-		currTween = currTween.Next;
+		currTween = currTween.next;
 	}
 	return false;
 
@@ -3218,13 +3205,12 @@ public static LTDescr options(LTDescr seed){ Debug.LogError("error this function
 public static LTDescr options(){
 	init();
 	
-	
 	LTDescr tween;
 	// Try pulling from the tween pool. 
-	if ( tweenPool.First != null )
+	if ( tweenPoolHead != null )
 	{
-		tween = tweenPool.First.Value;
-		tweenPool.RemoveFirst();
+		tween = tweenPoolHead;
+		tweenPoolHead = tweenPoolHead.next;
 	}
 	else
 	{
@@ -3276,7 +3262,9 @@ private static LTDescr pushNewTween( GameObject gameObject, Vector3 to, float ti
 	tween.time = time;
 	tween.type = tweenAction;
 	//tween.hasPhysics = gameObject.rigidbody!=null;
-	currTweens.AddFirst(tween);
+	// Add the new tween to the head of the currTweens list. 
+	tween.next = currTweensHead;
+	currTweensHead = tween;
 	return tween;
 }
 
