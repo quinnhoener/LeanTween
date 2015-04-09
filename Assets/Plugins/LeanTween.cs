@@ -203,7 +203,7 @@ public class LTRect : System.Object{
 	public static bool colorTouched;
 
 	public LTRect(){
-		reset();
+		reset(); 
 		this.rotateEnabled = this.alphaEnabled = true;
 		_rect = new Rect(0f,0f,1f,1f);
 	}
@@ -934,7 +934,7 @@ public class LTDescr{
 	}
 
 	public LTDescr(){
-
+		this.reset();
 	}
 
 	/**
@@ -1782,8 +1782,10 @@ public class LeanTween: MonoBehaviour {
 public static bool throwErrors = true;
 public static float tau = Mathf.PI*2.0f; 
 
-private static LTDescr[] tweens;
-private static int[] tweensFinished;
+//private static LTDescr[] tweens;
+private static LinkedList<LTDescr> tweenPool;
+private static LinkedList<LTDescr> currTweens;
+//private static int[] tweensFinished;
 private static LTDescr tween;
 private static int tweenMaxSearch = -1;
 private static int maxTweens = 400;
@@ -1821,26 +1823,27 @@ public static int maxSearch{
 *   LeanTween.init( 800 );
 */
 public static void init(int maxSimultaneousTweens){
-	if(tweens==null){
-		maxTweens = maxSimultaneousTweens;
-		tweens = new LTDescr[maxTweens];
-		tweensFinished = new int[maxTweens];
+	if(tweenPool==null){
+//		maxTweens = maxSimultaneousTweens;
+		tweenPool = new LinkedList<LTDescr>();
+		currTweens = new LinkedList<LTDescr>();
 		_tweenEmpty = new GameObject();
 		_tweenEmpty.name = "~LeanTween";
-		_tweenEmpty.AddComponent(typeof(LeanTween));
+		_tweenEmpty.AddComponent<LeanTween>();
 		_tweenEmpty.isStatic = true;
 		#if !UNITY_EDITOR
 		_tweenEmpty.hideFlags = HideFlags.HideAndDontSave;
 		#endif
 		DontDestroyOnLoad( _tweenEmpty );
 		for(int i = 0; i < maxTweens; i++){
-			tweens[i] = new LTDescr();
+			tweenPool.AddFirst(new LTDescr());
 		}
 	}
 }
 
 public static void reset(){
-	tweens = null;
+	tweenPool.Clear();
+	tweenPool = null;
 	Destroy(_tweenEmpty);
 }
 
@@ -1880,16 +1883,21 @@ public static void update() {
 		#endif
 
 		dtActual = Time.deltaTime;
-		maxTweenReached = 0;
-		finishedCnt = 0;
+//		maxTweenReached = 0;
+//		finishedCnt = 0;
 		// if(tweenMaxSearch>1500)
 		// Debug.Log("tweenMaxSearch:"+tweenMaxSearch +" maxTweens:"+maxTweens);
-		for( int i = 0; i <= tweenMaxSearch && i < maxTweens; i++){
+
+		LinkedListNode<LTDescr> currTween = currTweens.First;
+		LinkedListNode<LTDescr> nextTween = currTweens.First;
+		while( currTween != null ){
+//		for( int i = 0; i <= tweenMaxSearch && i < maxTweens; i++){
+			nextTween = currTween.Next;
+			tween = currTween.Value;
+//			Debug.Log("tween.toggle:"+tween.toggle);
 			
-			//Debug.Log("tweens["+i+"].toggle:"+tweens[i].toggle);
-			if(tweens[i].toggle){
-				maxTweenReached = i;
-				tween = tweens[i];
+			if(tween.toggle){
+//				maxTweenReached = i;
 				trans = tween.trans;
 				timeTotal = tween.time;
 				tweenAction = tween.type;
@@ -1907,7 +1915,7 @@ public static void update() {
 				}
 				
 				if(trans==null){
-					removeTween(i);
+					removeTween(currTween);
 					continue;
 				}
 				// Debug.Log("i:"+i+" tween:"+tween+" dt:"+dt);
@@ -2451,8 +2459,8 @@ public static void update() {
 				
 				if(isTweenFinished){
 					if(tween.loopType==LeanTweenType.once || tween.loopCount==1){
-						tweensFinished[finishedCnt] = i;
-						finishedCnt++;
+//						tweensFinished[finishedCnt] = i;
+//						finishedCnt++;
 
 						// Debug.Log("finished tween:"+i+" tween:"+tween);
 						if(tweenAction==TweenAction.GUI_ROTATE)
@@ -2461,6 +2469,11 @@ public static void update() {
 						if(tweenAction==TweenAction.DELAYED_SOUND){
 							AudioSource.PlayClipAtPoint((AudioClip)tween.onCompleteParam, tween.to, tween.from.x);
 						}
+						
+						// Finish the tween calls.
+						finishTween(tween);
+						// Now remove the tween. 
+						removeTween(currTween);
 					}else{
 						if((tween.loopCount<0 && tween.type==TweenAction.CALLBACK) || tween.onCompleteOnRepeat){
 							if(tweenAction==TweenAction.DELAYED_SOUND){
@@ -2493,75 +2506,20 @@ public static void update() {
 					}
 				}
 			}
+			
+			currTween = nextTween;
 		}
 
 		// Debug.Log("maxTweenReached:"+maxTweenReached);
-		tweenMaxSearch = maxTweenReached;
+//		tweenMaxSearch = maxTweenReached;
 		frameRendered = Time.frameCount;
 
-		for(int i = 0; i < finishedCnt; i++){
-			j = tweensFinished[i];
-			tween = tweens[ j ];
-	
-			if(tween.onComplete!=null){
-				System.Action onComplete = tween.onComplete;
-				removeTween(j);
-				//tween.cleanup();
-				onComplete();
-				
-			}else if(tween.onCompleteObject!=null){
-				System.Action<object> onCompleteObject = tween.onCompleteObject;
-				object onCompleteParam = tween.onCompleteParam;
-				removeTween(j);
-				//tween.cleanup();
-				onCompleteObject(onCompleteParam);
-			}
-			#if LEANTWEEN_1
-			else if(tween.optional!=null){
-				System.Action callback=null;
-				System.Action<object> callbackWithParam = null;
-				string callbackS=string.Empty;
-				object callbackParam=null;
-				Hashtable optional = tween.optional;
-				if(tween.optional!=null && tween.trans){
-					if(tween.optional["onComplete"]!=null){
-						callbackParam = tween.optional["onCompleteParam"];
-						if(tween.optional["onComplete"].GetType()==typeof(string)){
-							callbackS = tween.optional["onComplete"] as string;
-						}else{
-							if(callbackParam!=null){
-								callbackWithParam = (System.Action<object>)tween.optional["onComplete"];
-							}else{
-								callback = (System.Action)tween.optional["onComplete"];	
-								if(callback==null)
-									Debug.LogWarning("callback was not converted");
-							}
-						}
-					}
-				}
-				removeTween(j);
-				if(callbackWithParam!=null){
-					callbackWithParam( callbackParam );
-				}else if(callback!=null){
-					callback();
-				}else if(callbackS!=string.Empty){
-					if (optional["onCompleteTarget"]!=null){
-						customTarget = optional["onCompleteTarget"] as GameObject;
-						if(callbackParam!=null) customTarget.BroadcastMessage ( callbackS, callbackParam );
-						else customTarget.BroadcastMessage( callbackS );
-					}else{
-						if(callbackParam!=null) trans.gameObject.BroadcastMessage ( callbackS, callbackParam );
-						else trans.gameObject.BroadcastMessage( callbackS );
-					}
-				}
-				
-			}
-			#endif
-			else{
-				removeTween(j);
-				//tween.cleanup();
-			}
-		}
+//		for(int i = 0; i < finishedCnt; i++){
+//			j = tweensFinished[i];
+//			tween = tweens[ j ];
+//	
+//			removeTween(tween);
+//		}
 
 	}
 }
@@ -2588,32 +2546,165 @@ private static Color tweenColor( LTDescr tween, float val ){
 	return new Color(tween.axis.x + diff3.x*val, tween.axis.y + diff3.y*val, tween.axis.z + diff3.z*val, tween.from.y + diffAlpha*val);
 }
 
-// This method is only used internally! Do not call this from your scripts. To cancel a tween use LeanTween.cancel
-public static void removeTween( int i ){
-	if(tweens[i].toggle){
-		tweens[i].toggle = false;
-		// Debug.Log("removed i:"+i);
-		if(tweens[i].destroyOnComplete){
-			//Debug.Log("destroying tween.type:"+tween.type);
-			if(tweens[i].ltRect!=null){
-			//	Debug.Log("destroy i:"+i+" id:"+tweens[i].ltRect.id);
-				LTGUI.destroy( tweens[i].ltRect.id );
-			}else{ // check if equal to tweenEmpty
-				if(tweens[i].trans.gameObject!=_tweenEmpty){
-					Destroy(tweens[i].trans.gameObject);
+/**
+ * Called to finish all everything on a tween before returning it to the tweenPool. 
+ * 
+ * @param tween The tween to finish all complete/update calls on. 
+ */
+private static void finishTween(LTDescr tween)
+{
+	if(tween.onComplete!=null){
+		System.Action onComplete = tween.onComplete;
+//		removeTween(j);
+		//tween.cleanup();
+		onComplete();
+		
+	}else if(tween.onCompleteObject!=null){
+		System.Action<object> onCompleteObject = tween.onCompleteObject;
+		object onCompleteParam = tween.onCompleteParam;
+//		removeTween(j);
+		//tween.cleanup();
+		onCompleteObject(onCompleteParam);
+	}
+	#if LEANTWEEN_1
+	else if(tween.optional!=null){
+		System.Action callback=null;
+		System.Action<object> callbackWithParam = null;
+		string callbackS=string.Empty;
+		object callbackParam=null;
+		Hashtable optional = tween.optional;
+		if(tween.optional!=null && tween.trans){
+			if(tween.optional["onComplete"]!=null){
+				callbackParam = tween.optional["onCompleteParam"];
+				if(tween.optional["onComplete"].GetType()==typeof(string)){
+					callbackS = tween.optional["onComplete"] as string;
+				}else{
+					if(callbackParam!=null){
+						callbackWithParam = (System.Action<object>)tween.optional["onComplete"];
+					}else{
+						callback = (System.Action)tween.optional["onComplete"];	
+						if(callback==null)
+							Debug.LogWarning("callback was not converted");
+					}
 				}
 			}
 		}
-		tweens[i].cleanup();
-		//tweens[i].optional = null;
-		startSearch = i;
-		//Debug.Log("start search reset:"+startSearch + " i:"+i+" tweenMaxSearch:"+tweenMaxSearch);
-		if(i+1>=tweenMaxSearch){
-			//Debug.Log("reset to zero");
-			startSearch = 0;
-			//tweenMaxSearch--;
+		removeTween(j);
+		if(callbackWithParam!=null){
+			callbackWithParam( callbackParam );
+		}else if(callback!=null){
+			callback();
+		}else if(callbackS!=string.Empty){
+			if (optional["onCompleteTarget"]!=null){
+				customTarget = optional["onCompleteTarget"] as GameObject;
+				if(callbackParam!=null) customTarget.BroadcastMessage ( callbackS, callbackParam );
+				else customTarget.BroadcastMessage( callbackS );
+			}else{
+				if(callbackParam!=null) trans.gameObject.BroadcastMessage ( callbackS, callbackParam );
+				else trans.gameObject.BroadcastMessage( callbackS );
+			}
+		}
+		
+	}
+	#endif
+	else{
+//		removeTween(j);
+		//tween.cleanup();
+	}
+}
+
+// This method is only used internally! Do not call this from your scripts. To cancel a tween use LeanTween.cancel
+public static void removeTween( LinkedListNode<LTDescr> nodeToRemove )
+{	
+//	// If we're removing the first tween in the list. 
+//	if ( nodeToRemove == currTweens.First )
+//	{
+//		currTweens.RemoveFirst();
+//	}
+//
+//	// Check if we're removing the last tween in the list. 
+//	if ( nodeToRemove == currTweens.Last )
+//	{
+//		currTweens.RemoveLast();
+//	}
+//	
+//	// Check if there's a previous node.
+//	if ( nodeToRemove.Previous != null )
+//	{
+//		// Set the previous to the next tween.
+//		nodeToRemove.Previous.Next = nodeToRemove.Next;
+//	}
+//	
+//	// Check if there's a next node. 
+//	if ( nodeToRemove.Next != null )
+//	{
+//		// Set the next node to be the previous node. 
+//		nodeToRemove.Next.Previous = nodeToRemove.Previous;
+//	}
+	
+	
+	LTDescr tween = nodeToRemove.Value;
+	if(tween.destroyOnComplete){
+		//Debug.Log("destroying tween.type:"+tween.type);
+		if(tween.ltRect!=null){
+			//	Debug.Log("destroy i:"+i+" id:"+tweens[i].ltRect.id);
+			LTGUI.destroy( tween.ltRect.id );
+		}else{ // check if equal to tweenEmpty
+			if(tween.trans.gameObject != _tweenEmpty){
+				Destroy(tween.trans.gameObject);
+			}
 		}
 	}
+
+	// Reset this tween
+	tween.reset();
+	// and push back to the tween pool. 
+	tweenPool.AddLast(tween);
+
+	currTweens.Remove(nodeToRemove);
+}
+
+// This method is only used internally! Do not call this from your scripts. To cancel a tween use LeanTween.cancel
+public static void removeTween( int i ){
+
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	while( currTween != null )
+	{
+		LTDescr tween = currTween.Value;
+		if (tween.id == i){
+			removeTween(currTween);
+			break;
+		}
+		
+		currTween = currTween.Next;
+	}
+
+
+//	if(tweens[i].toggle){
+//		tweens[i].toggle = false;
+//		// Debug.Log("removed i:"+i);
+//		if(tweens[i].destroyOnComplete){
+//			//Debug.Log("destroying tween.type:"+tween.type);
+//			if(tweens[i].ltRect!=null){
+//			//	Debug.Log("destroy i:"+i+" id:"+tweens[i].ltRect.id);
+//				LTGUI.destroy( tweens[i].ltRect.id );
+//			}else{ // check if equal to tweenEmpty
+//				if(tweens[i].trans.gameObject!=_tweenEmpty){
+//					Destroy(tweens[i].trans.gameObject);
+//				}
+//			}
+//		}
+//		tweens[i].cleanup();
+//		//tweens[i].optional = null;
+//		startSearch = i;
+//		//Debug.Log("start search reset:"+startSearch + " i:"+i+" tweenMaxSearch:"+tweenMaxSearch);
+//		if(i+1>=tweenMaxSearch){
+//			//Debug.Log("reset to zero");
+//			startSearch = 0;
+//			//tweenMaxSearch--;
+//		}
+//	}
 }
 
 public static Vector3[] add(Vector3[] a, Vector3 b){
@@ -2652,13 +2743,19 @@ public static float closestRot( float from, float to ){
 */
 public static void cancelAll(bool callComplete){
     init();
-    for (int i = 0; i <= tweenMaxSearch; i++)
+//    for (int i = 0; i <= tweenMaxSearch; i++)
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	while( currTween != null )
     {
-        if (tweens[i].trans != null){
-            if (callComplete && tweens[i].onComplete != null)
-                tweens[i].onComplete();
-            removeTween(i);
+		LTDescr tween = currTween.Value;
+        if (tween.trans != null){
+            if (callComplete && tween.onComplete != null)
+                tween.onComplete();
+            removeTween(currTween);
         }
+		
+		currTween = currTween.Next;
     }
 }
 
@@ -2677,12 +2774,19 @@ public static void cancel( GameObject gameObject){
 public static void cancel( GameObject gameObject, bool callComplete ){
 	init();
 	Transform trans = gameObject.transform;
-	for(int i = 0; i <= tweenMaxSearch; i++){
-		if(tweens[i].toggle && tweens[i].trans==trans){
-            if (callComplete && tweens[i].onComplete != null)
-                tweens[i].onComplete();
-			removeTween(i);
+//	for(int i = 0; i <= tweenMaxSearch; i++)
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	while( currTween != null )
+	{
+		LTDescr tween = currTween.Value;
+		if(tween.toggle && tween.trans==trans){
+            if (callComplete && tween.onComplete != null)
+                tween.onComplete();
+			removeTween(currTween);
 		}
+		
+		currTween = currTween.Next;
 	}
 }
 
@@ -2698,9 +2802,26 @@ public static void cancel( GameObject gameObject, int uniqueId ){
 		init();
 		int backId = uniqueId & 0xFFFF;
 		int backCounter = uniqueId >> 16;
+
+		LinkedListNode<LTDescr> currTween = currTweens.First;
+		LTDescr tween;
+		while( currTween != null )
+		{
+			tween = currTween.Value;
+			if ( tween.uniqueId == uniqueId )
+			{
+				if ( tween.trans == null || (tween.trans.gameObject == gameObject && tween.counter == backCounter) )
+				{
+					removeTween(currTween);
+				}
+			}
+			
+			currTween = currTween.Next;
+		}
+
 		// Debug.Log("uniqueId:"+uniqueId+ " id:"+backId +" counter:"+backCounter + " setCounter:"+ tweens[backId].counter + " tweens[id].type:"+tweens[backId].type);
-		if(tweens[backId].trans==null || (tweens[backId].trans.gameObject == gameObject && tweens[backId].counter==backCounter))
-			removeTween((int)backId);
+//		if(tweens[backId].trans==null || (tweens[backId].trans.gameObject == gameObject && tweens[backId].counter==backCounter))
+//			removeTween((int)backId);
 	}
 }
 
@@ -2716,9 +2837,27 @@ public static void cancel( LTRect ltRect, int uniqueId ){
 		init();
 		int backId = uniqueId & 0xFFFF;
 		int backCounter = uniqueId >> 16;
+
+
+		LinkedListNode<LTDescr> currTween = currTweens.First;
+		LTDescr tween;
+		while( currTween != null )
+		{
+			tween = currTween.Value;
+			if ( tween.uniqueId == uniqueId )
+			{
+				if ( tween.ltRect == ltRect && tween.counter == backCounter )
+				{
+					removeTween(currTween);
+				}
+			}
+
+			currTween = currTween.Next;
+		}
+		
 		// Debug.Log("uniqueId:"+uniqueId+ " id:"+backId +" action:"+(TweenAction)backType + " tweens[id].type:"+tweens[backId].type);
-		if(tweens[backId].ltRect == ltRect && tweens[backId].counter==backCounter)
-			removeTween((int)backId);
+//		if(tweens[backId].ltRect == ltRect && tweens[backId].counter==backCounter)
+//			removeTween((int)backId);
 	}
 }
 
@@ -2727,9 +2866,26 @@ private static void cancel( int uniqueId ){
 		init();
 		int backId = uniqueId & 0xFFFF;
 		int backCounter = uniqueId >> 16;
+
+		LinkedListNode<LTDescr> currTween = currTweens.First;
+		LTDescr tween;
+		while( currTween != null )
+		{
+			tween = currTween.Value;
+			if ( tween.uniqueId == uniqueId )
+			{
+				if ( tween.hasInitiliazed && tween.counter == backCounter )
+				{
+					removeTween(currTween);
+				}
+			}
+			
+			currTween = currTween.Next;
+		}
+		
 		// Debug.Log("uniqueId:"+uniqueId+ " id:"+backId +" action:"+(TweenAction)backType + " tweens[id].type:"+tweens[backId].type);
-		if(tweens[backId].hasInitiliazed && tweens[backId].counter==backCounter)
-			removeTween((int)backId);
+//		if(tweens[backId].hasInitiliazed && tweens[backId].counter==backCounter)
+//			removeTween((int)backId);
 	}
 }
 
@@ -2738,12 +2894,28 @@ public static LTDescr description( int uniqueId ){
 	int backId = uniqueId & 0xFFFF;
 	int backCounter = uniqueId >> 16;
 
-	if(tweens[backId]!=null && tweens[backId].uniqueId == uniqueId && tweens[backId].counter==backCounter)
-		return tweens[backId];
-	for(int i = 0; i <= tweenMaxSearch; i++){
-		if(tweens[i].uniqueId == uniqueId && tweens[i].counter==backCounter)
-			return tweens[i];
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
+	while( currTween != null )
+	{
+		tween = currTween.Value;
+		if ( tween.uniqueId == uniqueId )
+		{
+			if ( tween.counter == backCounter )
+			{
+				return tween;
+			}
+		}
+		
+		currTween = currTween.Next;
 	}
+
+//	if(tweens[backId]!=null && tweens[backId].uniqueId == uniqueId && tweens[backId].counter==backCounter)
+//		return tweens[backId];
+//	for(int i = 0; i <= tweenMaxSearch; i++){
+//		if(tweens[i].uniqueId == uniqueId && tweens[i].counter==backCounter)
+//			return tweens[i];
+//	}
 	return null;
 }
 
@@ -2755,9 +2927,28 @@ public static void pause( GameObject gameObject, int uniqueId ){
 public static void pause( int uniqueId ){
 	int backId = uniqueId & 0xFFFF;
 	int backCounter = uniqueId >> 16;
-	if(tweens[backId].counter==backCounter){
-		tweens[backId].pause();
+
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
+	while( currTween != null )
+	{
+		tween = currTween.Value;
+		if ( tween.uniqueId == uniqueId )
+		{
+			if ( tween.counter == backCounter )
+			{
+				tween.pause();
+				break;
+			}
+		}
+		
+		currTween = currTween.Next;
 	}
+
+//	if(tweens[backId].counter==backCounter){
+//		tweens[backId].pause();
+//	}
 }
 
 /**
@@ -2768,11 +2959,25 @@ public static void pause( int uniqueId ){
 */
 public static void pause( GameObject gameObject ){
 	Transform trans = gameObject.transform;
-	for(int i = 0; i <= tweenMaxSearch; i++){
-		if(tweens[i].trans==trans){
-			tweens[i].pause();
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
+	while( currTween != null )
+	{
+		tween = currTween.Value;
+		if ( tween.trans == trans )
+		{
+			tween.pause();
 		}
+		
+		currTween = currTween.Next;
 	}
+	
+//	for(int i = 0; i <= tweenMaxSearch; i++){
+//		if(tweens[i].trans==trans){
+//			tweens[i].pause();
+//		}
+//	}
 }
 
 /**
@@ -2782,9 +2987,17 @@ public static void pause( GameObject gameObject ){
 */
 public static void pauseAll(){
 	init();
-    for (int i = 0; i <= tweenMaxSearch; i++){
-        tweens[i].pause();
-    }
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	while( currTween != null )
+	{
+		currTween.Value.pause();
+		currTween = currTween.Next;
+	}
+	
+//    for (int i = 0; i <= tweenMaxSearch; i++){
+//        tweens[i].pause();
+//    }
 }
 
 /**
@@ -2794,9 +3007,18 @@ public static void pauseAll(){
 */
 public static void resumeAll(){
 	init();
-    for (int i = 0; i <= tweenMaxSearch; i++){
-        tweens[i].resume();
-    }
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	while( currTween != null )
+	{
+		currTween.Value.resume();
+		currTween = currTween.Next;
+	}
+
+
+//    for (int i = 0; i <= tweenMaxSearch; i++){
+//        tweens[i].resume();
+//    }
 }
 
 [System.Obsolete("Use 'resume( id )' instead")]
@@ -2813,9 +3035,25 @@ public static void resume( GameObject gameObject, int uniqueId ){
 public static void resume( int uniqueId ){
 	int backId = uniqueId & 0xFFFF;
 	int backCounter = uniqueId >> 16;
-	if(tweens[backId].counter==backCounter){
-		tweens[backId].resume();
+
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
+	while( currTween != null )
+	{
+		tween = currTween.Value;
+		if ( tween.uniqueId == uniqueId )
+		{
+			tween.resume();
+		}
+		
+		currTween = currTween.Next;
 	}
+
+
+//	if(tweens[backId].counter==backCounter){
+//		tweens[backId].resume();
+//	}
 }
 
 /**
@@ -2826,10 +3064,24 @@ public static void resume( int uniqueId ){
 */
 public static void resume( GameObject gameObject ){
 	Transform trans = gameObject.transform;
-	for(int i = 0; i <= tweenMaxSearch; i++){
-		if(tweens[i].trans==trans)
-			tweens[i].resume();
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
+	while( currTween != null )
+	{
+		tween = currTween.Value;
+		if ( tween.trans == trans )
+		{
+			tween.resume();
+		}
+		
+		currTween = currTween.Next;
 	}
+
+//	for(int i = 0; i <= tweenMaxSearch; i++){
+//		if(tweens[i].trans==trans)
+//			tweens[i].resume();
+//	}
 }
 
 /**
@@ -2839,19 +3091,39 @@ public static void resume( GameObject gameObject ){
 * @param {GameObject} gameObject:GameObject GameObject that you want to test if it is tweening
 */
 public static bool isTweening( GameObject gameObject = null ){
+	
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
 	if(gameObject==null){
-		for(int i = 0; i <= tweenMaxSearch; i++){
-			if(tweens[i].toggle)
+		while( currTween != null ){
+			if(currTween.Value.toggle)
 				return true;
+			currTween = currTween.Next;
 		}
 		return false;
 	}
 	Transform trans = gameObject.transform;
-	for(int i = 0; i <= tweenMaxSearch; i++){
-		if(tweens[i].toggle && tweens[i].trans==trans)
+	while( currTween != null ){
+		tween = currTween.Value;
+		if(tween.toggle && tween.trans == trans)
 			return true;
+		currTween = currTween.Next;
 	}
 	return false;
+
+//	if(gameObject==null){
+//		for(int i = 0; i <= tweenMaxSearch; i++){
+//			if(tweens[i].toggle)
+//				return true;
+//		}
+//		return false;
+//	}
+//	Transform trans = gameObject.transform;
+//	for(int i = 0; i <= tweenMaxSearch; i++){
+//		if(tweens[i].toggle && tweens[i].trans==trans)
+//			return true;
+//	}
+//	return false;
 }
 
 /**
@@ -2867,12 +3139,27 @@ public static bool isTweening( GameObject gameObject = null ){
 public static bool isTweening( int uniqueId ){
 	int backId = uniqueId & 0xFFFF;
 	int backCounter = uniqueId >> 16;
-	if (backId < 0 || backId >= maxTweens) return false;
-	// Debug.Log("tweens[backId].counter:"+tweens[backId].counter+" backCounter:"+backCounter +" toggle:"+tweens[backId].toggle);
-	if(tweens[backId].counter==backCounter && tweens[backId].toggle){
-		return true;
+//	if (backId < 0 || backId >= maxTweens) return false;
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
+	while( currTween != null )
+	{
+		tween = currTween.Value;
+		if ( tween.counter == backCounter && tween.toggle )
+		{
+			return true;
+		}
+		
+		currTween = currTween.Next;
 	}
 	return false;
+
+	// Debug.Log("tweens[backId].counter:"+tweens[backId].counter+" backCounter:"+backCounter +" toggle:"+tweens[backId].toggle);
+//	if(tweens[backId].counter==backCounter && tweens[backId].toggle){
+//		return true;
+//	}
+//	return false;
 }
 
 /**
@@ -2882,11 +3169,27 @@ public static bool isTweening( int uniqueId ){
 * @param {LTRect} ltRect:LTRect LTRect that you want to test if it is tweening
 */
 public static bool isTweening( LTRect ltRect ){
-	for( int i = 0; i <= tweenMaxSearch; i++){
-		if(tweens[i].toggle && tweens[i].ltRect==ltRect)
+
+	LinkedListNode<LTDescr> currTween = currTweens.First;
+	LTDescr tween;
+	while( currTween != null )
+	{
+		tween = currTween.Value;
+		if ( tween.toggle && tween.ltRect == ltRect )
+		{
 			return true;
+		}
+		
+		currTween = currTween.Next;
 	}
 	return false;
+
+
+//	for( int i = 0; i <= tweenMaxSearch; i++){
+//		if(tweens[i].toggle && tweens[i].ltRect==ltRect)
+//			return true;
+//	}
+//	return false;
 }
 
 public static void drawBezierPath(Vector3 a, Vector3 b, Vector3 c, Vector3 d){
@@ -2915,27 +3218,42 @@ public static LTDescr options(LTDescr seed){ Debug.LogError("error this function
 public static LTDescr options(){
 	init();
 	
-	for(j=0, i = startSearch; j < maxTweens; i++){
-		if(i>=maxTweens-1)
-			i = 0;
-		if(tweens[i].toggle==false){
-			if(i+1>tweenMaxSearch)
-				tweenMaxSearch = i+1;
-			startSearch = i + 1;
-			break;
-		}
-		
-		j++;
-		if(j >= maxTweens)
-			return logError("LeanTween - You have run out of available spaces for tweening. To avoid this error increase the number of spaces to available for tweening when you initialize the LeanTween class ex: LeanTween.init( "+(maxTweens*2)+" );") as LTDescr;
-	}
 	
-	tweens[i].reset();
-	tweens[i].setId( (uint)i );
+	LTDescr tween;
+	// Try pulling from the tween pool. 
+	if ( tweenPool.First != null )
+	{
+		tween = tweenPool.First.Value;
+		tweenPool.RemoveFirst();
+	}
+	else
+	{
+		// If nothing's left in the tweenPool, create a new tween. 
+		tween = new LTDescr();
+	}
+	return tween;
 
-	// Debug.Log("new tween with i:"+i+" counter:"+tweens[i].counter+" tweenMaxSearch:"+tweenMaxSearch+" tween:"+tweens[i]);
-
-	return tweens[i];
+//	for(j=0, i = startSearch; j < maxTweens; i++){
+//		if(i>=maxTweens-1)
+//			i = 0;
+//		if(tweens[i].toggle==false){
+//			if(i+1>tweenMaxSearch)
+//				tweenMaxSearch = i+1;
+//			startSearch = i + 1;
+//			break;
+//		}
+//		
+//		j++;
+//		if(j >= maxTweens)
+//			return logError("LeanTween - You have run out of available spaces for tweening. To avoid this error increase the number of spaces to available for tweening when you initialize the LeanTween class ex: LeanTween.init( "+(maxTweens*2)+" );") as LTDescr;
+//	}
+	
+//	tweens[i].reset();
+//	tweens[i].setId( (uint)i );
+//
+//	// Debug.Log("new tween with i:"+i+" counter:"+tweens[i].counter+" tweenMaxSearch:"+tweenMaxSearch+" tween:"+tweens[i]);
+//
+//	return tweens[i];
 }
 
 public static GameObject tweenEmpty{
@@ -2958,7 +3276,7 @@ private static LTDescr pushNewTween( GameObject gameObject, Vector3 to, float ti
 	tween.time = time;
 	tween.type = tweenAction;
 	//tween.hasPhysics = gameObject.rigidbody!=null;
-	
+	currTweens.AddFirst(tween);
 	return tween;
 }
 
