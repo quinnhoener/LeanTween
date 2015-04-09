@@ -1789,7 +1789,7 @@ private static LTDescr currTweensHead;
 //private static int[] tweensFinished;
 private static LTDescr tween;
 private static int tweenMaxSearch = -1;
-private static int maxTweens = 400;
+private static int maxTweens = 200;
 private static int frameRendered= -1;
 private static GameObject _tweenEmpty;
 private static float dtEstimated;
@@ -1824,8 +1824,8 @@ public static int maxSearch{
 *   LeanTween.init( 800 );
 */
 public static void init(int maxSimultaneousTweens){
-	if(tweenPoolHead ==null){
-//		maxTweens = maxSimultaneousTweens;
+	if(_tweenEmpty == null){
+		maxTweens = maxSimultaneousTweens;
 		// tweenPool = new LinkedList<LTDescr>();
 		// currTweens = new LinkedList<LTDescr>();
 		_tweenEmpty = new GameObject();
@@ -1836,24 +1836,28 @@ public static void init(int maxSimultaneousTweens){
 		_tweenEmpty.hideFlags = HideFlags.HideAndDontSave;
 		#endif
 		DontDestroyOnLoad( _tweenEmpty );
-		LTDescr newTween;
-		for(int i = 0; i < maxTweens; i++){
-			newTween = new LTDescr();
-			newTween.next = tweenPoolHead;
-			tweenPoolHead = newTween;
-		}
+	}
+}
+
+public void Awake()
+{
+	LTDescr newTween;
+	for(int i = 0; i < maxTweens; i++){
+		newTween = new LTDescr();
+		newTween.next = tweenPoolHead;
+		tweenPoolHead = newTween;
 	}
 }
 
 public static void reset(){
-	LTDescr curr = tweenPoolHead, prev;
+	LTDescr curr = currTweensHead, next;
+	// Remove all current tweens. 
 	while( curr != null )
 	{
-		prev = curr;
-		curr = curr.next;
-		prev.next = null;
+		next = curr.next;
+		removeTween(curr);
+		curr = next;
 	}
-	tweenPoolHead = null;
 	Destroy(_tweenEmpty);
 }
 
