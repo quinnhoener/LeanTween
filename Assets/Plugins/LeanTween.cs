@@ -4227,6 +4227,11 @@ public static int alpha(GameObject gameObject, float to, float time, object[] op
 #endif
 
 // Tweening Functions - Thanks to Robert Penner and GFX47
+// Also thanks to Flambe 
+// Flambe - Rapid game development
+// https://github.com/aduros/flambe/blob/master/LICENSE.txt
+// Flambe's adaption from FlashPunk:
+// https://github.com/Draknek/FlashPunk/blob/master/net/flashpunk/utils/Ease.as
 
 private static float tweenOnCurve( LTDescr tweenDescr, float ratioPassed ){
 	// Debug.Log("single ratio:"+ratioPassed+" tweenDescr.animationCurve.Evaluate(ratioPassed):"+tweenDescr.animationCurve.Evaluate(ratioPassed));
@@ -4255,7 +4260,9 @@ private static float easeInOutQuadOpt( float start, float diff, float ratioPasse
 }
 
 private static float linear(float start, float end, float val){
-	return Mathf.Lerp(start, end, val);
+	// return Mathf.Lerp(start, end, val);
+
+	return start + (end - start) * val;
 }
 
 private static float clerp(float start, float end, float val){
@@ -4281,262 +4288,397 @@ private static float spring(float start, float end, float val){
 }
 
 private static float easeInQuad(float start, float end, float val){
-	end -= start;
-	return end * val * val + start;
+	// end -= start;
+	// return end * val * val + start;
+
+	return start + (end - start) * (val * val);
 }
 
 private static float easeOutQuad(float start, float end, float val){
-	end -= start;
-	return -end * val * (val - 2) + start;
+	// end -= start;
+	// return -end * val * (val - 2) + start;
+
+	return start + (end - start) * (val * (2 - val));
 }
 
 private static float easeInOutQuad(float start, float end, float val){
-	val /= .5f;
-	end -= start;
-	if (val < 1) return end / 2 * val * val + start;
-	val--;
-	return -end / 2 * (val * (val - 2) - 1) + start;
+	// val /= .5f;
+	// end -= start;
+	// if (val < 1) return end / 2 * val * val + start;
+	// val--;
+	// return -end / 2 * (val * (val - 2) - 1) + start;
+
+	return start + (end - start) * (val <= .5f ? val * val * 2 : 1 - (--val) * val * 2);
 }
 
 private static float easeInCubic(float start, float end, float val){
-	end -= start;
-	return end * val * val * val + start;
+	// end -= start;
+	// return end * val * val * val + start;
+
+
+	return start + (end - start) * (val * val * val);
 }
 
 private static float easeOutCubic(float start, float end, float val){
-	val--;
-	end -= start;
-	return end * (val * val * val + 1) + start;
+	// val--;
+	// end -= start;
+	// return end * (val * val * val + 1) + start;
+
+	return start + (end - start) * (1 + (--val) * val * val);
 }
 
 private static float easeInOutCubic(float start, float end, float val){
-	val /= .5f;
-	end -= start;
-	if (val < 1) return end / 2 * val * val * val + start;
-	val -= 2;
-	return end / 2 * (val * val * val + 2) + start;
+	// val /= .5f;
+	// end -= start;
+	// if (val < 1) return end / 2 * val * val * val + start;
+	// val -= 2;
+	// return end / 2 * (val * val * val + 2) + start;
+
+	return start + (end - start) * (val <= .5f ? val * val * val * 4 : 1 + (--val) * val * val * 4);
 }
 
 private static float easeInQuart(float start, float end, float val){
-	end -= start;
-	return end * val * val * val * val + start;
+	// end -= start;
+	// return end * val * val * val * val + start;
+
+
+	return start + (end - start) * (val * val * val * val);
 }
 
 private static float easeOutQuart(float start, float end, float val){
-	val--;
-	end -= start;
-	return -end * (val * val * val * val - 1) + start;
+	// val--;
+	// end -= start;
+	// return -end * (val * val * val * val - 1) + start;
+
+	return start + (end - start) * (1 - (--val) * val * val * val);
 }
 
 private static float easeInOutQuart(float start, float end, float val){
-	val /= .5f;
-	end -= start;
-	if (val < 1) return end / 2 * val * val * val * val + start;
-	val -= 2;
-	return -end / 2 * (val * val * val * val - 2) + start;
+	// val /= .5f;
+	// end -= start;
+	// if (val < 1) return end / 2 * val * val * val * val + start;
+	// val -= 2;
+	// return -end / 2 * (val * val * val * val - 2) + start;
+
+	return start + (end - start) * (val <= .5f ? val * val * val * val * 8 : (1 - (val = val * 2 - 2) * val * val * val) / 2 + .5f);
+
 }
 
 private static float easeInQuint(float start, float end, float val){
-	end -= start;
-	return end * val * val * val * val * val + start;
+	// end -= start;
+	// return end * val * val * val * val * val + start;
+
+	return start + (end - start) * (val * val * val * val * val);
+
 }
 
 private static float easeOutQuint(float start, float end, float val){
-	val--;
-	end -= start;
-	return end * (val * val * val * val * val + 1) + start;
+	// val--;
+	// end -= start;
+	// return end * (val * val * val * val * val + 1) + start;
+
+	return start + (end - start) * ((val = val - 1) * val * val * val * val + 1);
 }
 
 private static float easeInOutQuint(float start, float end, float val){
-	val /= .5f;
-	end -= start;
-	if (val < 1) return end / 2 * val * val * val * val * val + start;
-	val -= 2;
-	return end / 2 * (val * val * val * val * val + 2) + start;
+	// val /= .5f;
+	// end -= start;
+	// if (val < 1) return end / 2 * val * val * val * val * val + start;
+	// val -= 2;
+	// return end / 2 * (val * val * val * val * val + 2) + start;
+
+
+	return start + (end - start) * (((val *= 2) < 1) ? (val * val * val * val * val) / 2 : ((val -= 2) * val * val * val * val + 2) / 2);
+
 }
 
 private static float easeInSine(float start, float end, float val){
-	end -= start;
-	return -end * Mathf.Cos(val / 1 * (Mathf.PI / 2)) + end + start;
+	// end -= start;
+	// return -end * Mathf.Cos(val / 1 * (Mathf.PI / 2)) + end + start;
+
+	return start + (end - start) * (1 - Mathf.Cos(PIhalf * val));
 }
 
 private static float easeOutSine(float start, float end, float val){
-	end -= start;
-	return end * Mathf.Sin(val / 1 * (Mathf.PI / 2)) + start;
+	// end -= start;
+	// return end * Mathf.Sin(val / 1 * (Mathf.PI / 2)) + start;
+
+	return start + (end - start) * (Mathf.Sin(PIhalf * val));
 }
 
 private static float easeInOutSine(float start, float end, float val){
-	end -= start;
-	return -end / 2 * (Mathf.Cos(Mathf.PI * val / 1) - 1) + start;
+	// end -= start;
+	// return -end / 2 * (Mathf.Cos(Mathf.PI * val / 1) - 1) + start;
+
+	return start + (end - start) * (.5f - Mathf.Cos(PI * val) / 2);
+
 }
 
 private static float easeInExpo(float start, float end, float val){
-	end -= start;
-	return end * Mathf.Pow(2, 10 * (val / 1 - 1)) + start;
+	// end -= start;
+	// return end * Mathf.Pow(2, 10 * (val / 1 - 1)) + start;
+
+
+	return start + (end - start) * (Mathf.Pow(2, 10 * (val - 1)));
 }
 
 private static float easeOutExpo(float start, float end, float val){
-	end -= start;
-	return end * (-Mathf.Pow(2, -10 * val / 1) + 1) + start;
+	// end -= start;
+	// return end * (-Mathf.Pow(2, -10 * val / 1) + 1) + start;
+
+
+	return start + (end - start) * (-Mathf.Pow(2, -10 * val) + 1);
 }
 
 private static float easeInOutExpo(float start, float end, float val){
-	val /= .5f;
-	end -= start;
-	if (val < 1) return end / 2 * Mathf.Pow(2, 10 * (val - 1)) + start;
-	val--;
-	return end / 2 * (-Mathf.Pow(2, -10 * val) + 2) + start;
+	// val /= .5f;
+	// end -= start;
+	// if (val < 1) return end / 2 * Mathf.Pow(2, 10 * (val - 1)) + start;
+	// val--;
+	// return end / 2 * (-Mathf.Pow(2, -10 * val) + 2) + start;
+
+
+	return start + (end - start) * (val < .5f ? Mathf.Pow(2, 10 * (val * 2 - 1)) / 2 : (-Mathf.Pow(2, -10 * (val * 2 - 1)) + 2) / 2);
+
 }
 
 private static float easeInCirc(float start, float end, float val){
-	end -= start;
-	return -end * (Mathf.Sqrt(1 - val * val) - 1) + start;
+	// end -= start;
+	// return -end * (Mathf.Sqrt(1 - val * val) - 1) + start;
+
+
+	return start + (end - start) * (1 - Mathf.Sqrt(1 - val * val));
+
 }
 
 private static float easeOutCirc(float start, float end, float val){
-	val--;
-	end -= start;
-	return end * Mathf.Sqrt(1 - val * val) + start;
+	// val--;
+	// end -= start;
+	// return end * Mathf.Sqrt(1 - val * val) + start;
+
+
+	--val;
+	return start + (end - start) * (Mathf.Sqrt(1 - val * val));
 }
 
 private static float easeInOutCirc(float start, float end, float val){
-	val /= .5f;
-	end -= start;
-	if (val < 1) return -end / 2 * (Mathf.Sqrt(1 - val * val) - 1) + start;
-	val -= 2;
-	return end / 2 * (Mathf.Sqrt(1 - val * val) + 1) + start;
+	// val /= .5f;
+	// end -= start;
+	// if (val < 1) return -end / 2 * (Mathf.Sqrt(1 - val * val) - 1) + start;
+	// val -= 2;
+	// return end / 2 * (Mathf.Sqrt(1 - val * val) + 1) + start;
+
+
+	return start + (end - start) * (val <= .5f ? (Mathf.Sqrt(1 - val * val * 4) - 1) / -2 : (Mathf.Sqrt(1 - (val * 2 - 2) * (val * 2 - 2)) + 1) / 2);
+
 }
 
 private static float easeInBounce(float start, float end, float val){
-	end -= start;
-	float d = 1f;
-	return end - easeOutBounce(0, end, d-val) + start;
+	// end -= start;
+	// float d = 1f;
+	// return end - easeOutBounce(0, end, d-val) + start;
+
+
+
+    val = 1 - val;
+    if (val < B1) return start + (end - start) * (1 - 7.5625f * val * val);
+    if (val < B2) return start + (end - start) * (1 - (7.5625f * (val - B3) * (val - B3) + .75f));
+    if (val < B4) return start + (end - start) * (1 - (7.5625f * (val - B5) * (val - B5) + .9375f));
+	return start + (end - start) * (1 - (7.5625f * (val - B6) * (val - B6) + .984375f));
+
 }
 
 private static float easeOutBounce(float start, float end, float val){
-	val /= 1f;
-	end -= start;
-	if (val < (1 / 2.75f)){
-		return end * (7.5625f * val * val) + start;
-	}else if (val < (2 / 2.75f)){
-		val -= (1.5f / 2.75f);
-		return end * (7.5625f * (val) * val + .75f) + start;
-	}else if (val < (2.5 / 2.75)){
-		val -= (2.25f / 2.75f);
-		return end * (7.5625f * (val) * val + .9375f) + start;
-	}else{
-		val -= (2.625f / 2.75f);
-		return end * (7.5625f * (val) * val + .984375f) + start;
-	}
+	// val /= 1f;
+	// end -= start;
+	// if (val < (1 / 2.75f)){
+	// 	return end * (7.5625f * val * val) + start;
+	// }else if (val < (2 / 2.75f)){
+	// 	val -= (1.5f / 2.75f);
+	// 	return end * (7.5625f * (val) * val + .75f) + start;
+	// }else if (val < (2.5 / 2.75)){
+	// 	val -= (2.25f / 2.75f);
+	// 	return end * (7.5625f * (val) * val + .9375f) + start;
+	// }else{
+	// 	val -= (2.625f / 2.75f);
+	//  return end * (7.5625f * (val) * val + .984375f) + start;
+	// }
+
+
+	if (val < B1) return start + (end - start) * (7.5625f * val * val);
+	if (val < B2) return start + (end - start) * (7.5625f * (val - B3) * (val - B3) + .75f);
+	if (val < B4) return start + (end - start) * (7.5625f * (val - B5) * (val - B5) + .9375f);
+	return start + (end - start) * (7.5625f * (val - B6) * (val - B6) + .984375f);
+
+
+
 }
 
 private static float easeInOutBounce(float start, float end, float val){
-	end -= start;
-	float d= 1f;
-	if (val < d/2) return easeInBounce(0, end, val*2) * 0.5f + start;
-	else return easeOutBounce(0, end, val*2-d) * 0.5f + end*0.5f + start;
+	// end -= start;
+	// float d= 1f;
+	// if (val < d/2) return easeInBounce(0, end, val*2) * 0.5f + start;
+	// else return easeOutBounce(0, end, val*2-d) * 0.5f + end*0.5f + start;
+
+
+
+
+	if (val < .5f) {
+        val = 1 - val * 2;
+        if (val < B1) return start + (end - start) * ((1 - 7.5625f * val * val ) / 2);
+        if (val < B2) return start + (end - start) * ((1 - (7.5625f * (val - B3) * (val - B3) + .75f)) / 2);
+        if (val < B4) return start + (end - start) * ((1 - (7.5625f * (val - B5) * (val - B5) + .9375f)) / 2);
+        return start + (end - start) * ((1 - (7.5625f * (val - B6) * (val - B6) + .984375f)) / 2);
+    }
+    val = val * 2 - 1;
+    if (val < B1) return start + (end - start) * ((7.5625f * val * val ) / 2 + .5f);
+    if (val < B2) return start + (end - start) * ((7.5625f * (val - B3) * (val - B3) + .75f) / 2 + .5f);
+    if (val < B4) return start + (end - start) * ((7.5625f * (val - B5) * (val - B5) + .9375f) / 2 + .5f);
+	return start + (end - start) * ((7.5625f * (val - B6) * (val - B6) + .984375f) / 2 + .5f);
+
+
 }
 
 private static float easeInBack(float start, float end, float val){
-	end -= start;
-	val /= 1;
-	float s= 1.70158f;
-	return end * (val) * val * ((s + 1) * val - s) + start;
+	// end -= start;
+	// val /= 1;
+	// float s= 1.70158f;
+	// return end * (val) * val * ((s + 1) * val - s) + start;
+	
+	return start + (end - start) * (val * val * (2.70158f * val - 1.70158f));
 }
 
 private static float easeOutBack(float start, float end, float val){
-	float s= 1.70158f;
-	end -= start;
-	val = (val / 1) - 1;
-	return end * ((val) * val * ((s + 1) * val + s) + 1) + start;
+	// float s= 1.70158f;
+	// end -= start;
+	// val = (val / 1) - 1;
+	// return end * ((val) * val * ((s + 1) * val + s) + 1) + start;
+
+
+	return start + (end - start) * (1f - (--val) * (val) * (-2.70158f * val - 1.70158f));
 }
 
 private static float easeInOutBack(float start, float end, float val){
-	float s= 1.70158f;
-	end -= start;
-	val /= .5f;
-	if ((val) < 1){
-		s *= (1.525f);
-		return end / 2 * (val * val * (((s) + 1) * val - s)) + start;
-	}
-	val -= 2;
-	s *= (1.525f);
-	return end / 2 * ((val) * val * (((s) + 1) * val + s) + 2) + start;
+	// float s= 1.70158f;
+	// end -= start;
+	// val /= .5f;
+	// if ((val) < 1){
+	// 	s *= (1.525f);
+	// 	return end / 2 * (val * val * (((s) + 1) * val - s)) + start;
+	// }
+	// val -= 2;
+	// s *= (1.525f);
+	// return end / 2 * ((val) * val * (((s) + 1) * val + s) + 2) + start;
+
+
+
+	val *= 2;
+    if (val < 1) return start + (end - start) * (val * val * (2.70158f * val - 1.70158f) / 2);
+    val -= 2;
+    return start + (end - start) * ((1 - val * val * (-2.70158f * val - 1.70158f)) / 2 + .5f);
 }
 
 private static float easeInElastic(float start, float end, float val){
-	end -= start;
+	// end -= start;
 	
-	float d = 1f;
-	float p = d * .3f;
-	float s= 0;
-	float a = 0;
+	// float d = 1f;
+	// float p = d * .3f;
+	// float s= 0;
+	// float a = 0;
 	
-	if (val == 0) return start;
-	val = val/d;
-	if (val == 1) return start + end;
+	// if (val == 0) return start;
+	// val = val/d;
+	// if (val == 1) return start + end;
 	
-	if (a == 0f || a < Mathf.Abs(end)){
-		a = end;
-		s = p / 4;
-		}else{
-		s = p / (2 * Mathf.PI) * Mathf.Asin(end / a);
-	}
-	val = val-1;
-	return -(a * Mathf.Pow(2, 10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p)) + start;
+	// if (a == 0f || a < Mathf.Abs(end)){
+	// 	a = end;
+	// 	s = p / 4;
+	// 	}else{
+	// 	s = p / (2 * Mathf.PI) * Mathf.Asin(end / a);
+	// }
+	// val = val-1;
+	// return -(a * Mathf.Pow(2, 10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p)) + start;
+
+
+
+	return start + (end - start) * (-(ELASTIC_AMPLITUDE * Mathf.Pow(2, 10 * (val -= 1)) * Mathf.Sin( (val - (ELASTIC_PERIOD / PI2 * Mathf.Asin(1 / ELASTIC_AMPLITUDE))) * PI2 / ELASTIC_PERIOD)));
+
 }		
 
 private static float easeOutElastic(float start, float end, float val){
-	end -= start;
+	// end -= start;
 	
-	float d = 1f;
-	float p= d * .3f;
-	float s= 0;
-	float a= 0;
+	// float d = 1f;
+	// float p= d * .3f;
+	// float s= 0;
+	// float a= 0;
 	
-	if (val == 0) return start;
+	// if (val == 0) return start;
 	
-	val = val / d;
-	if (val == 1) return start + end;
+	// val = val / d;
+	// if (val == 1) return start + end;
 	
-	if (a == 0f || a < Mathf.Abs(end)){
-		a = end;
-		s = p / 4;
-		}else{
-		s = p / (2 * Mathf.PI) * Mathf.Asin(end / a);
-	}
+	// if (a == 0f || a < Mathf.Abs(end)){
+	// 	a = end;
+	// 	s = p / 4;
+	// 	}else{
+	// 	s = p / (2 * Mathf.PI) * Mathf.Asin(end / a);
+	// }
 	
-	return (a * Mathf.Pow(2, -10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p) + end + start);
+	// return (a * Mathf.Pow(2, -10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p) + end + start);
+
+
+	return start + (end - start) * (ELASTIC_AMPLITUDE * Mathf.Pow(2f, -10f * val) * Mathf.Sin((val - (ELASTIC_PERIOD / PI2 * Mathf.Asin(1f / ELASTIC_AMPLITUDE))) * PI2 / ELASTIC_PERIOD) + 1f);
 }		
 
 private static float easeInOutElastic(float start, float end, float val)
 {
-	end -= start;
+	// end -= start;
 	
-	float d = 1f;
-	float p= d * .3f;
-	float s= 0;
-	float a = 0;
+	// float d = 1f;
+	// float p= d * .3f;
+	// float s= 0;
+	// float a = 0;
 	
-	if (val == 0) return start;
+	// if (val == 0) return start;
 	
-	val = val / (d/2);
-	if (val == 2) return start + end;
+	// val = val / (d/2);
+	// if (val == 2) return start + end;
 	
-	if (a == 0f || a < Mathf.Abs(end)){
-		a = end;
-		s = p / 4;
-		}else{
-		s = p / (2 * Mathf.PI) * Mathf.Asin(end / a);
+	// if (a == 0f || a < Mathf.Abs(end)){
+	// 	a = end;
+	// 	s = p / 4;
+	// 	}else{
+	// 	s = p / (2 * Mathf.PI) * Mathf.Asin(end / a);
+	// }
+	
+	// if (val < 1){
+	//  val = val-1;
+	//  return -0.5f * (a * Mathf.Pow(2, 10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p)) + start;
+	// }
+	// val = val-1;
+	// return a * Mathf.Pow(2, -10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p) * 0.5f + end + start;
+
+	if (val < 0.5f) {
+		return start + (end - start) * (-0.5f * (Mathf.Pow(2f, 10f * (val -= 0.5f)) * Mathf.Sin((val - (ELASTIC_PERIOD / 4f)) * PI2 / ELASTIC_PERIOD)));
 	}
-	
-	if (val < 1){
-	 val = val-1;
-	 return -0.5f * (a * Mathf.Pow(2, 10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p)) + start;
-	}
-	val = val-1;
-	return a * Mathf.Pow(2, -10 * val) * Mathf.Sin((val * d - s) * (2 * Mathf.PI) / p) * 0.5f + end + start;
+	return start + (end - start) * (Mathf.Pow(2f, -10f * (val -= 0.5f)) * Mathf.Sin((val - (ELASTIC_PERIOD / 4f)) * PI2 / ELASTIC_PERIOD) * 0.5f + 1f);
+
+
+
 }
+
+private const float PIhalf = Mathf.PI * .5f;
+private const float PI = Mathf.PI;
+private const float PI2 = Mathf.PI * 2f;
+private const float B1 = 1f / 2.75f;
+private const float B2 = 2f / 2.75f;
+private const float B3 = 1.5f / 2.75f;
+private const float B4 = 2.5f / 2.75f;
+private const float B5 = 2.25f / 2.75f;
+private const float B6 = 2.625f / 2.75f;
+private const float ELASTIC_AMPLITUDE = 1f;
+private const float ELASTIC_PERIOD = 0.4f;
 
 // LeanTween Listening/Dispatch
 
